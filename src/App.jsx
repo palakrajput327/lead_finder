@@ -11,14 +11,29 @@ export default function App() {
   const [filteredLeads, setFilteredLeads] = useState([]);
   const [searchFilter, setSearchFilter] = useState('');
   const [isMining, setIsMining] = useState(false);
+  const [appendMode, setAppendMode] = useState(false);
+  
+  // Track seen company names across sessions to prevent duplicates
+  const [seenCompanyNames, setSeenCompanyNames] = useState(() => {
+    try {
+      const saved = localStorage.getItem('vcfo_seen_leads_fy25');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
 
-  // Initial load with default inputs
+  const [batchOffset, setBatchOffset] = useState(0);
+
+  // Initial load with multi-industry default parameters
   useEffect(() => {
     const initial = generateLeads({
-      sector: 'SaaS & Tech Startups',
+      sector: 'All Sectors (India Mid-Market)',
       count: 15,
       geography: 'India (any state)',
-      excludeList: ''
+      excludeList: '',
+      seenCompanyNames: [],
+      batchOffset: 0
     });
     setLeads(initial);
     setFilteredLeads(initial);
@@ -44,17 +59,72 @@ export default function App() {
     setFilteredLeads(result);
   }, [searchFilter, leads]);
 
-  // Handle Find Leads button trigger
-  const handleFindLeads = (params) => {
+  // Save seen companies to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('vcfo_seen_leads_fy25', JSON.stringify(seenCompanyNames));
+    } catch (e) {
+      console.error('LocalStorage write error', e);
+    }
+  }, [seenCompanyNames]);
+
+  // Handle Find Leads & Fetch Next Batch triggers
+  const handleFindLeads = (params, isNextBatch = false, shouldAppend = false) => {
     setIsMining(true);
     
-    // Simulate mining delay for seamless user experience
     setTimeout(() => {
-      const minedLeads = generateLeads(params);
-      setLeads(minedLeads);
-      setFilteredLeads(minedLeads);
+      let updatedSeen = [...seenCompanyNames];
+      
+      // Exclude all currently visible leads
+      const currentNames = leads.map(l => l.companyName);
+      if (isNextBatch && leads.length > 0) {
+        updatedSeen = Array.from(new Set([...updatedSeen, ...currentNames]));
+        setSeenCompanyNames(updatedSeen);
+      }
+
+      const nextOffset = isNextBatch ? batchOffset + 1 : 0;
+      if (!isNextBatch) {
+        setBatchOffset(0);
+      } else {
+        setBatchOffset(nextOffset);
+      }
+
+      const minedLeads = generateLeads({
+        ...params,
+        seenCompanyNames: isNextBatch ? updatedSeen : (params.excludeSeen ? updatedSeen : []),
+        batchOffset: nextOffset
+      });
+
+      if (shouldAppend || (isNextBatch && appendMode)) {
+        // Append new non-duplicate leads to existing table
+        const combined = [...leads, ...minedLeads].map((item, idx) => ({ ...item, sNo: idx + 1 }));
+        setLeads(combined);
+        setFilteredLeads(combined);
+      } else {
+        setLeads(minedLeads);
+        setFilteredLeads(minedLeads);
+      }
+
       setIsMining(false);
-    }, 800);
+    }, 600);
+  };
+
+  // Reset seen history
+  const handleClearHistory = () => {
+    setSeenCompanyNames([]);
+    setBatchOffset(0);
+    localStorage.removeItem('vcfo_seen_leads_fy25');
+    
+    const fresh = generateLeads({
+      sector: 'All Sectors (India Mid-Market)',
+      count: 15,
+      geography: 'India (any state)',
+      excludeList: '',
+      seenCompanyNames: [],
+      batchOffset: 0
+    });
+    setLeads(fresh);
+    setFilteredLeads(fresh);
   };
 
   // Compute stats for header
@@ -79,6 +149,10 @@ export default function App() {
         <InputControls 
           onFindLeads={handleFindLeads} 
           isMining={isMining} 
+          seenCount={seenCompanyNames.length}
+          onClearHistory={handleClearHistory}
+          appendMode={appendMode}
+          setAppendMode={setAppendMode}
         />
 
         {/* Excel & CSV Export Bar */}
@@ -100,7 +174,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400 mt-8">
-        VCFO B2B Lead Mining System &bull; Strict Public Data Verification &bull; India DPDP Compliant
+        VCFO B2B Lead Mining System &bull; Multi-Industry FY25 MCA Data &bull; Cumulative & Batch Deduplication Modes &bull; India DPDP Compliant
       </footer>
 
     </div>

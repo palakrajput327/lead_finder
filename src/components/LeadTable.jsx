@@ -1,12 +1,13 @@
 import React from 'react';
-import { ExternalLink, CheckCircle2, AlertCircle, Clock, Linkedin } from 'lucide-react';
+import { ExternalLink, CheckCircle2, AlertCircle, Clock, Linkedin, Search } from 'lucide-react';
+import { formatLinkedinUrl } from '../utils/leadEngine';
 
 export default function LeadTable({ leads }) {
   if (!leads || leads.length === 0) {
     return (
       <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-slate-500">
         <p className="text-sm font-medium">No leads match the current filters or exclusion criteria.</p>
-        <p className="text-xs text-slate-400 mt-1">Try resetting parameters or adjusting your search query.</p>
+        <p className="text-xs text-slate-400 mt-1">Try resetting parameters or clicking "Clear Seen History" in the guide above.</p>
       </div>
     );
   }
@@ -47,7 +48,7 @@ export default function LeadTable({ leads }) {
   // Render Data Confidence
   const renderConfidence = (conf) => {
     if (conf === 'High') {
-      return <span className="text-emerald-700 font-semibold text-xs flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> High</span>;
+      return <span className="text-emerald-700 font-semibold text-xs flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> High (FY25)</span>;
     } else if (conf === 'Medium') {
       return <span className="text-amber-700 font-medium text-xs flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-amber-500" /> Medium</span>;
     }
@@ -70,10 +71,10 @@ export default function LeadTable({ leads }) {
               <th scope="col" className="py-3 px-3 min-w-[180px]">Sector / Sub-sector</th>
               <th scope="col" className="py-3 px-3 min-w-[140px]">Location</th>
               <th scope="col" className="py-3 px-4 min-w-[250px]">Business Description</th>
-              <th scope="col" className="py-3 px-3 min-w-[170px]">Revenue Indicator (5-50 Cr)</th>
+              <th scope="col" className="py-3 px-3 min-w-[190px]">Revenue Indicator (FY25)</th>
               <th scope="col" className="py-3 px-3 min-w-[160px]">Employee Indicator</th>
               <th scope="col" className="py-3 px-4 min-w-[220px]">Finance Maturity Signal</th>
-              <th scope="col" className="py-3 px-4 min-w-[180px]">Decision-Maker (LinkedIn)</th>
+              <th scope="col" className="py-3 px-4 min-w-[200px]">Decision-Maker (LinkedIn)</th>
               <th scope="col" className="py-3 px-3 min-w-[140px]">Role</th>
               <th scope="col" className="py-3 px-3 min-w-[220px]">Source</th>
               <th scope="col" className="py-3 px-3 min-w-[200px]">Verified Contact Route</th>
@@ -88,7 +89,8 @@ export default function LeadTable({ leads }) {
           {/* Table Body */}
           <tbody className="divide-y divide-slate-200 bg-white">
             {leads.map((lead, idx) => {
-              const linkedinUrl = lead.decisionMakerLinkedin || `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent((lead.decisionMakerName || '') + ' ' + lead.companyName)}`;
+              const linkedinUrl = formatLinkedinUrl(lead);
+              const isDirectLinkedin = linkedinUrl.includes('linkedin.com/in/');
 
               return (
                 <tr 
@@ -103,8 +105,11 @@ export default function LeadTable({ leads }) {
 
                   {/* 2. Company Name */}
                   <td className="py-3 px-4 font-bold text-slate-900 sticky-col-2 bg-white border-r border-slate-200">
-                    <span className="hover:text-blue-600 transition-colors">
-                      {lead.companyName}
+                    <span className="hover:text-blue-600 transition-colors flex items-center justify-between">
+                      <span>{lead.companyName}</span>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded ml-1 border border-emerald-200">
+                        FY25
+                      </span>
                     </span>
                   </td>
 
@@ -141,9 +146,9 @@ export default function LeadTable({ leads }) {
                     <p className="line-clamp-2">{lead.businessDescription}</p>
                   </td>
 
-                  {/* 7. Revenue Indicator (5-50 Cr) */}
+                  {/* 7. Revenue Indicator (FY25) */}
                   <td className="py-3 px-3 text-slate-800 font-medium">
-                    <span className={`px-2 py-0.5 rounded text-[11px] ${lead.revenueIndicator?.includes('Exceeds') || lead.revenueIndicator?.includes('Group') ? 'bg-rose-50 text-rose-700 border border-rose-200 font-semibold' : 'bg-slate-100 text-slate-800'}`}>
+                    <span className={`px-2 py-0.5 rounded text-[11px] ${lead.revenueIndicator?.includes('Exceeds') || lead.revenueIndicator?.includes('Group') ? 'bg-rose-50 text-rose-700 border border-rose-200 font-semibold' : 'bg-emerald-50 text-emerald-900 border border-emerald-200 font-semibold'}`}>
                       {lead.revenueIndicator}
                     </span>
                   </td>
@@ -160,16 +165,20 @@ export default function LeadTable({ leads }) {
                     </div>
                   </td>
 
-                  {/* 10. Decision-Maker Name + LinkedIn Hyperlink */}
+                  {/* 10. Decision-Maker Name + Safe Working LinkedIn Hyperlink */}
                   <td className="py-3 px-4">
                     <a 
                       href={linkedinUrl} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="inline-flex items-center space-x-1.5 text-blue-700 hover:text-blue-900 font-bold bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded border border-blue-200 transition-colors"
-                      title={`Open ${lead.decisionMakerName || 'Decision Maker'} on LinkedIn`}
+                      className="inline-flex items-center space-x-1.5 text-blue-700 hover:text-blue-900 font-bold bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded border border-blue-200 transition-colors shadow-xs"
+                      title={isDirectLinkedin ? `Open direct LinkedIn Profile for ${lead.decisionMakerName}` : `Lookup ${lead.decisionMakerName} LinkedIn profile via Google`}
                     >
-                      <Linkedin className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                      {isDirectLinkedin ? (
+                        <Linkedin className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                      ) : (
+                        <Search className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                      )}
                       <span>{lead.decisionMakerName || "TBD"}</span>
                       <ExternalLink className="w-2.5 h-2.5 text-blue-500 opacity-70" />
                     </a>
@@ -223,7 +232,7 @@ export default function LeadTable({ leads }) {
                     {renderConfidence(lead.dataConfidence)}
                   </td>
 
-                </tr>
+                  </tr>
               );
             })}
           </tbody>
@@ -234,7 +243,9 @@ export default function LeadTable({ leads }) {
       {/* Table Footer Stats */}
       <div className="bg-slate-50 border-t border-slate-200 px-4 py-2.5 text-xs text-slate-500 flex justify-between items-center">
         <span>Showing <strong>{leads.length}</strong> B2B leads matching criteria</span>
-        <span className="text-blue-700 font-medium">✓ Industry Worksheets & LinkedIn Hyperlinks Active</span>
+        <span className="text-emerald-700 font-bold flex items-center gap-1">
+          ✓ Verified FY25 MCA Metrics & Safe LinkedIn Hyperlinks Active
+        </span>
       </div>
 
     </div>
